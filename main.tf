@@ -25,7 +25,7 @@ resource "azurerm_log_analytics_workspace" "this" {
 # Creates the VNet and the Container Apps subnet with the required delegation.
 # ----------------------------------------------------------------------------
 module "networking" {
-  source = "git::https://github.com/raghavendiran222222-cloud/terraform-azurerm-networking.git?ref=v1.0.0"
+  source = "git::https://github.com/Terraform-Modules-Internal/terraform-azurerm-networking.git?ref=v1.0.0"
 
   resource_group_name = azurerm_resource_group.this.name
   location            = azurerm_resource_group.this.location
@@ -55,7 +55,7 @@ module "networking" {
 # Deploys a Container App Environment (VNet-integrated) and an nginx container.
 # ----------------------------------------------------------------------------
 module "container_app" {
-  source = "git::https://github.com/raghavendiran222222-cloud/terraform-azurerm-container-app.git?ref=v1.0.0"
+  source = "git::https://github.com/Terraform-Modules-Internal/terraform-azurerm-container-app.git?ref=v1.0.0"
 
   resource_group_name = azurerm_resource_group.this.name
   location            = azurerm_resource_group.this.location
