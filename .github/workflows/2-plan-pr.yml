@@ -5,26 +5,27 @@
 # the full output as a collapsible PR comment so asset owners can review all
 # proposed infrastructure changes before they approve the PR.
 #
-# Secret management strategy
-# ──────────────────────────
-# 1. OIDC (Workload Identity Federation) is used to authenticate to Azure —
-#    no long-lived client secret is stored in GitHub.
-# 2. All Terraform service-principal credentials are fetched at runtime from
-#    Azure Key Vault using the az CLI.
-# 3. Every secret value is immediately masked with `::add-mask::` before
-#    being written to $GITHUB_ENV, preventing exposure in any log line.
+# Authentication strategy
+# ────────────────────────
+# Azure App Registration with Federated Identity Credentials (OIDC) is used
+# for both the Azure CLI login and the Terraform azurerm provider.
+# No client secrets are required, stored, or transmitted.
+#
+# How it works:
+#   1. `id-token: write` permission lets GitHub issue a short-lived OIDC JWT.
+#   2. azure/login@v2 exchanges the JWT for an Azure CLI access token.
+#   3. The azurerm provider reads ARM_USE_OIDC=true and independently
+#      exchanges its own OIDC token (via ACTIONS_ID_TOKEN_REQUEST_*) for
+#      an Azure Resource Manager token — no Key Vault fetch required.
 #
 # Required GitHub Secrets:
-#   AZURE_CLIENT_ID        — client ID of the OIDC-enabled service principal
-#   AZURE_TENANT_ID        — Azure AD tenant ID
+#   AZURE_CLIENT_ID        — Application (client) ID of the App Registration
+#   AZURE_TENANT_ID        — Azure AD / Entra ID tenant ID
 #   AZURE_SUBSCRIPTION_ID  — Azure subscription ID
-#   AZURE_KEYVAULT_NAME    — name of the Key Vault holding TF credentials
 #
-# Required Azure Key Vault secrets:
-#   ARM-CLIENT-ID          — Terraform service principal client ID
-#   ARM-CLIENT-SECRET      — Terraform service principal secret
-#   ARM-TENANT-ID          — Terraform tenant ID
-#   ARM-SUBSCRIPTION-ID    — Terraform subscription ID
+# Azure prerequisites:
+#   - App Registration with a Federated Credential for this repo + branch/PR
+#   - Contributor (or scoped) role assigned on the target subscription/RG
 # ============================================================================
 
 name: "2 · Plan (PR)"
@@ -37,7 +38,7 @@ on:
 
 # OIDC token issuance + PR comment posting require these permissions.
 permissions:
-  id-token: write      # issue OIDC token for azure/login
+  id-token: write      # issue OIDC token for azure/login and azurerm provider
   contents: read
   pull-requests: write # post plan as PR comment
 
@@ -45,6 +46,17 @@ jobs:
   plan:
     name: Terraform Plan
     runs-on: ubuntu-latest
+
+    # ── Terraform ARM authentication via OIDC ────────────────────────────────
+    # ARM_USE_OIDC instructs the azurerm provider to obtain a short-lived
+    # access token via the GitHub OIDC endpoint instead of a client secret.
+    # ACTIONS_ID_TOKEN_REQUEST_URL and ACTIONS_ID_TOKEN_REQUEST_TOKEN are
+    # injected automatically by GitHub when id-token: write is set above.
+    env:
+      ARM_CLIENT_ID:       ${{ secrets.AZURE_CLIENT_ID }}
+      ARM_TENANT_ID:       ${{ secrets.AZURE_TENANT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      ARM_USE_OIDC:        "true"
 
     steps:
       - name: Checkout
@@ -56,41 +68,15 @@ jobs:
           terraform_version: "~1.5"
           terraform_wrapper: false  # disabled so raw exit codes are captured
 
-      # ── Azure login via OIDC ──────────────────────────────────────────────
-      # No client secret is required.  A short-lived JWT is exchanged for an
-      # Azure access token automatically by the action.
+      # ── Azure CLI login via OIDC ──────────────────────────────────────────
+      # Exchanges the short-lived GitHub OIDC JWT for an Azure CLI session.
+      # No client secret is stored or transmitted.
       - name: Azure Login (OIDC)
         uses: azure/login@v2
         with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          client-id:       ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id:       ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-
-      # ── Fetch Terraform credentials from Key Vault ────────────────────────
-      # The fetch_and_mask helper:
-      #   1. Retrieves the secret value via az CLI
-      #   2. Immediately registers it as a masked value (::add-mask::)
-      #   3. Writes it to $GITHUB_ENV for subsequent steps
-      # The secret value will appear as *** in all future log output.
-      - name: Fetch Terraform credentials from Key Vault
-        run: |
-          fetch_and_mask() {
-            local kv_secret="$1"
-            local env_var="$2"
-            local value
-            value=$(az keyvault secret show \
-              --vault-name "${{ secrets.AZURE_KEYVAULT_NAME }}" \
-              --name  "$kv_secret" \
-              --query value \
-              --output tsv)
-            echo "::add-mask::$value"
-            echo "${env_var}=${value}" >> "$GITHUB_ENV"
-          }
-
-          fetch_and_mask "ARM-CLIENT-ID"      "ARM_CLIENT_ID"
-          fetch_and_mask "ARM-CLIENT-SECRET"  "ARM_CLIENT_SECRET"
-          fetch_and_mask "ARM-TENANT-ID"      "ARM_TENANT_ID"
-          fetch_and_mask "ARM-SUBSCRIPTION-ID" "ARM_SUBSCRIPTION_ID"
 
       - name: Terraform Init
         run: terraform init
