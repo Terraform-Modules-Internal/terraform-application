@@ -14,11 +14,12 @@ name: "1 · Format & Validate"
 on:
   push:
     branches-ignore:
-      - main
+    - main
     paths:
-      - "**.tf"
-      - "**.tfvars"
+    - "**.tf"
+    - "**.tfvars"
   workflow_dispatch:
+
 
 jobs:
   # --------------------------------------------------------------------------
@@ -29,19 +30,19 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+    - name: Checkout
+      uses: actions/checkout@v4
 
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: "~1.5"
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: "~1.5"
 
-      - name: terraform fmt
-        # -check  → exit non-zero if any file is not formatted
-        # -diff   → show which lines differ
-        # -recursive → traverse all sub-directories
-        run: terraform fmt -check -diff -recursive .
+    - name: terraform fmt
+      # -check  → exit non-zero if any file is not formatted
+      # -diff   → show which lines differ
+      # -recursive → traverse all sub-directories
+      run: terraform fmt -check -diff -recursive .
 
   # --------------------------------------------------------------------------
   # Initialise the root module and run terraform validate.
@@ -52,28 +53,29 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+    - name: Checkout
+      uses: actions/checkout@v4
 
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: "~1.5"
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: "~1.5"
 
-      - name: Generate GitHub App Token
-        id: app-token
-        uses: actions/create-github-app-token@v1
-        with:
-          app-id: ${{ secrets.GH_APP_ID }}
-          private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
-          owner: Terraform-Modules-Internal
+    - name: Generate GitHub App Token
+      id: app-token
+      uses: actions/create-github-app-token@v1
+      with:
+        app-id: ${{ secrets.GH_APP_ID }}
+        private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
+        owner: Terraform-Modules-Internal
+        owner-type: organization
 
-      - name: Configure Git credentials
-        run: |
-          git config --global url."https://x-access-token:${{ steps.app-token.outputs.token }}@github.com/".insteadOf "https://github.com/"
+    - name: Configure Git credentials
+      run: |
+        git config --global url."https://x-access-token:${{ steps.app-token.outputs.token }}@github.com/".insteadOf "https://github.com/"
 
-      - name: terraform init (no backend)
-        run: terraform init -backend=false -upgrade
+    - name: terraform init (no backend)
+      run: terraform init -backend=false -upgrade
 
-      - name: terraform validate
-        run: terraform validate
+    - name: terraform validate
+      run: terraform validate
