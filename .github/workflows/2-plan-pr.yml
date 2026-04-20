@@ -22,6 +22,7 @@
 #   AZURE_CLIENT_ID        — Application (client) ID of the App Registration
 #   AZURE_TENANT_ID        — Azure AD / Entra ID tenant ID
 #   AZURE_SUBSCRIPTION_ID  — Azure subscription ID
+#   MYSQL_ADMIN_PASSWORD   — MySQL administrator password (sensitive)
 #
 # Azure prerequisites:
 #   - App Registration with a Federated Credential for this repo + branch/PR
@@ -53,10 +54,11 @@ jobs:
     # ACTIONS_ID_TOKEN_REQUEST_URL and ACTIONS_ID_TOKEN_REQUEST_TOKEN are
     # injected automatically by GitHub when id-token: write is set above.
     env:
-      ARM_CLIENT_ID:       ${{ secrets.AZURE_CLIENT_ID }}
-      ARM_TENANT_ID:       ${{ secrets.AZURE_TENANT_ID }}
-      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-      ARM_USE_OIDC:        "true"
+      ARM_CLIENT_ID:              ${{ secrets.AZURE_CLIENT_ID }}
+      ARM_TENANT_ID:              ${{ secrets.AZURE_TENANT_ID }}
+      ARM_SUBSCRIPTION_ID:        ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      ARM_USE_OIDC:               "true"
+      TF_VAR_mysql_admin_password: ${{ secrets.MYSQL_ADMIN_PASSWORD }}
 
     steps:
       - name: Checkout

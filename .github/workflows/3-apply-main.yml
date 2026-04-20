@@ -37,6 +37,7 @@
 # Required GitHub Secrets:
 #   AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_SUBSCRIPTION_ID
 #   GH_APP_ID, GH_APP_PRIVATE_KEY
+#   MYSQL_ADMIN_PASSWORD   — MySQL administrator password (sensitive)
 # ============================================================================
 
 name: "3 · Apply / Destroy (main)"
@@ -84,10 +85,11 @@ jobs:
       exit_code: ${{ steps.plan.outputs.exit_code }}
 
     env:
-      ARM_CLIENT_ID:       ${{ secrets.AZURE_CLIENT_ID }}
-      ARM_TENANT_ID:       ${{ secrets.AZURE_TENANT_ID }}
-      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-      ARM_USE_OIDC:        "true"
+      ARM_CLIENT_ID:              ${{ secrets.AZURE_CLIENT_ID }}
+      ARM_TENANT_ID:              ${{ secrets.AZURE_TENANT_ID }}
+      ARM_SUBSCRIPTION_ID:        ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      ARM_USE_OIDC:               "true"
+      TF_VAR_mysql_admin_password: ${{ secrets.MYSQL_ADMIN_PASSWORD }}
 
     steps:
       - name: Checkout
@@ -191,10 +193,11 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      ARM_CLIENT_ID:       ${{ secrets.AZURE_CLIENT_ID }}
-      ARM_TENANT_ID:       ${{ secrets.AZURE_TENANT_ID }}
-      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-      ARM_USE_OIDC:        "true"
+      ARM_CLIENT_ID:              ${{ secrets.AZURE_CLIENT_ID }}
+      ARM_TENANT_ID:              ${{ secrets.AZURE_TENANT_ID }}
+      ARM_SUBSCRIPTION_ID:        ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      ARM_USE_OIDC:               "true"
+      TF_VAR_mysql_admin_password: ${{ secrets.MYSQL_ADMIN_PASSWORD }}
 
     steps:
       - name: Checkout
@@ -268,10 +271,11 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      ARM_CLIENT_ID:       ${{ secrets.AZURE_CLIENT_ID }}
-      ARM_TENANT_ID:       ${{ secrets.AZURE_TENANT_ID }}
-      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-      ARM_USE_OIDC:        "true"
+      ARM_CLIENT_ID:              ${{ secrets.AZURE_CLIENT_ID }}
+      ARM_TENANT_ID:              ${{ secrets.AZURE_TENANT_ID }}
+      ARM_SUBSCRIPTION_ID:        ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      ARM_USE_OIDC:               "true"
+      TF_VAR_mysql_admin_password: ${{ secrets.MYSQL_ADMIN_PASSWORD }}
 
     steps:
       # Abort immediately if the typed confirmation is wrong.

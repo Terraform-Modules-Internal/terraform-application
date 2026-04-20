@@ -79,6 +79,8 @@ variable "mysql_admin_password" {
   type        = string
   description = "MySQL administrator password. Pass via TF_VAR_mysql_admin_password or a secrets manager — never commit."
   sensitive   = true
+  default     = null
+  nullable    = true
 }
 
 variable "mysql_sku" {
