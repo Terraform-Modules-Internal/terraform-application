@@ -60,6 +60,18 @@ jobs:
         with:
           terraform_version: "~1.5"
 
+      - name: Generate GitHub App Token
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.GH_APP_ID }}
+          private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
+          owner: Terraform-Modules-Internal
+
+      - name: Configure Git credentials
+        run: |
+          git config --global url."https://x-access-token:${{ steps.app-token.outputs.token }}@github.com/".insteadOf "https://github.com/"
+
       - name: terraform init (no backend)
         run: terraform init -backend=false -upgrade
 
