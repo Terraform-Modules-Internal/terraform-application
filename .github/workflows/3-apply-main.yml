@@ -128,11 +128,13 @@ jobs:
 
       - name: Terraform Plan
         id: plan
+        timeout-minutes: 10
         run: |
           set +e
           terraform plan \
             -no-color \
             -detailed-exitcode \
+            -lock-timeout=60s \
             -out="${{ github.workspace }}/tfplan" \
             2>&1 | tee "${{ github.workspace }}/plan.txt"
           echo "exit_code=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
