@@ -55,7 +55,7 @@ module "networking" {
 # Deploys a Container App Environment (VNet-integrated) and an nginx container.
 # ----------------------------------------------------------------------------
 module "container_app" {
-  source = "git::https://github.com/Terraform-Modules-Internal/terraform-azurerm-container-app.git?ref=v1.0.0"
+  source = "git::https://github.com/Terraform-Modules-Internal/terraform-azurerm-container-app.git?ref=v1.0.1"
 
   resource_group_name = azurerm_resource_group.this.name
   location            = azurerm_resource_group.this.location
