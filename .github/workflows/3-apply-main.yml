@@ -1,57 +1,54 @@
 # ============================================================================
 # Workflow 3 — Terraform Apply (Post-merge to main)
 #
-# Triggered when a commit lands on `main` (post-PR merge) or manually via
-# workflow_dispatch.
-#
 # Pipeline shape
 # ──────────────
 #
-#   ┌──────────────────┐     tfplan artifact      ┌────────────────────────────┐
-#   │   Job: plan      │ ─────────────────────── ▶ │   Job: apply               │
-#   │  (runs always)   │                           │   environment: production  │
-#   └──────────────────┘                           │   ← approval required      │
-#                                                  └────────────────────────────┘
+#   On push to main (automatic):
+#   ┌──────────────────┐
+#   │   Job: plan      │  → posts plan to Step Summary, uploads artifact
+#   │  (auto)          │    NO apply — human must review and re-dispatch
+#   └──────────────────┘
 #
-# Approval gate
-# ─────────────
-# The `apply` job targets the GitHub Environment named `production`.
-# GitHub pauses execution and sends approval notifications to all required
-# reviewers configured on that environment.  Reviewers should read the plan
-# published to the Step Summary before approving.
+#   On workflow_dispatch → action: apply (manual):
+#   ┌──────────────────┐     tfplan artifact      ┌──────────────────────┐
+#   │   Job: plan      │ ──────────────────────▶  │   Job: apply         │
+#   │  (re-runs)       │                          │   (manual approval)  │
+#   └──────────────────┘                          └──────────────────────┘
 #
-# Configure reviewers:
-#   Repository → Settings → Environments → production → Required reviewers
+# Approval gate (without GitHub Environments)
+# ────────────────────────────────────────────
+# The apply job only runs when a human manually triggers this workflow via
+# Actions → "Run workflow" and selects action: apply.
+# This preserves a single Federated Identity Credential (subject:
+# repo:<org>/<repo>:ref:refs/heads/main) covering both jobs — no
+# environment-scoped FIC is required.
+#
+# How to approve and apply:
+#   1. Review the plan in the Step Summary of the push-triggered run.
+#   2. Go to Actions → "3 · Apply (main)" → Run workflow.
+#   3. Select action: apply and click Run workflow.
 #
 # Authentication strategy
 # ────────────────────────
-# Azure App Registration with Federated Identity Credentials (OIDC) is used
-# for both the Azure CLI login and the Terraform azurerm provider.
+# Azure App Registration with Federated Identity Credentials (OIDC).
 # No client secrets are required, stored, or transmitted.
 #
-# How it works:
-#   1. `id-token: write` permission lets GitHub issue a short-lived OIDC JWT.
-#   2. azure/login@v2 exchanges the JWT for an Azure CLI access token.
-#   3. The azurerm provider reads ARM_USE_OIDC=true and independently
-#      exchanges its own OIDC token for an Azure Resource Manager token.
+# Required GitHub Secrets:
+#   AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_SUBSCRIPTION_ID
+#   GH_APP_ID, GH_APP_PRIVATE_KEY
+#
+# Azure prerequisites:
+#   - App Registration with ONE Federated Identity Credential:
+#       Entity type: Branch → subject: repo:<org>/<repo>:ref:refs/heads/main
+#       Covers both the plan and apply jobs.
+#   - Contributor (or scoped) role on the target subscription/RG
 #
 # Concurrency
 # ───────────
 # A concurrency group prevents two apply runs from racing on the same branch.
 # cancel-in-progress is false because interrupting a running apply could leave
 # infrastructure in a partially-changed state.
-#
-# Required GitHub Secrets:
-#   AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_SUBSCRIPTION_ID
-#
-# Azure prerequisites:
-#   - App Registration with Federated Credentials for:
-#       • repo push on main  (plan + apply jobs)
-#       • pull_request       (if workflow_dispatch targets main)
-#   - Contributor (or scoped) role on the target subscription/RG
-#
-# Required GitHub Environment:
-#   production — configure required reviewers in repository settings
 # ============================================================================
 
 name: "3 · Apply (main)"
@@ -61,6 +58,15 @@ on:
     branches:
       - main
   workflow_dispatch:
+    inputs:
+      action:
+        description: "Action to perform after plan"
+        required: true
+        default: plan-only
+        type: choice
+        options:
+          - plan-only
+          - apply
 
 permissions:
   id-token: write
@@ -72,9 +78,9 @@ concurrency:
 
 # ============================================================================
 # JOB 1 — plan
-# Generates the execution plan, writes a human-readable summary to the
-# workflow Step Summary (visible before approval), and uploads the binary
-# plan file as a short-lived artifact for the apply job.
+# Always runs. Generates the execution plan, publishes it to the Step Summary
+# so the reviewer can read it before approving, and uploads the binary plan
+# file as an artifact for the apply job (same run).
 # ============================================================================
 jobs:
   plan:
@@ -84,9 +90,6 @@ jobs:
     outputs:
       exit_code: ${{ steps.plan.outputs.exit_code }}
 
-    # ── Terraform ARM authentication via OIDC ────────────────────────────────
-    # ARM_USE_OIDC instructs the azurerm provider to obtain a short-lived
-    # access token via the GitHub OIDC endpoint instead of a client secret.
     env:
       ARM_CLIENT_ID:       ${{ secrets.AZURE_CLIENT_ID }}
       ARM_TENANT_ID:       ${{ secrets.AZURE_TENANT_ID }}
@@ -103,7 +106,6 @@ jobs:
           terraform_version: "~1.5"
           terraform_wrapper: false
 
-      # ── Azure CLI login via OIDC ──────────────────────────────────────────
       - name: Azure Login (OIDC)
         uses: azure/login@v2
         with:
@@ -115,9 +117,9 @@ jobs:
         id: app-token
         uses: actions/create-github-app-token@v3.1.1
         with:
-          client-id: ${{ secrets.GH_APP_ID }}
+          client-id:   ${{ secrets.GH_APP_ID }}
           private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
-          owner: Terraform-Modules-Internal
+          owner:       Terraform-Modules-Internal
 
       - name: Configure Git credentials
         run: |
@@ -141,15 +143,15 @@ jobs:
           set -e
         continue-on-error: true
 
-      # Publish the plan to the Step Summary so approvers can read it from
-      # the workflow run page when deciding whether to approve the apply job.
+      # Publish the plan to the Step Summary so the reviewer can read it
+      # before dispatching the apply action.
       - name: Publish plan to Step Summary
         run: |
           EXIT="${{ steps.plan.outputs.exit_code }}"
           case "$EXIT" in
             0) STATUS="✅ No changes — infrastructure is up to date" ;;
             1) STATUS="❌ Plan failed — review errors below"         ;;
-            2) STATUS="⚠️  Changes detected — review before approving apply" ;;
+            2) STATUS="⚠️  Changes detected — dispatch 'apply' to proceed" ;;
             *) STATUS="Exit code: $EXIT" ;;
           esac
 
@@ -168,6 +170,8 @@ jobs:
             cat "${{ github.workspace }}/plan.txt"
             echo '```'
             echo "</details>"
+            echo ""
+            echo "> To apply: Actions → **3 · Apply (main)** → Run workflow → action: **apply**"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload plan artifact
@@ -176,7 +180,7 @@ jobs:
         with:
           name: tfplan-${{ github.run_id }}
           path: tfplan
-          retention-days: 1   # keep only long enough for approval + apply
+          retention-days: 1
 
       - name: Fail if plan errored
         if: steps.plan.outputs.exit_code == '1'
@@ -186,28 +190,25 @@ jobs:
 
   # ============================================================================
   # JOB 2 — apply
-  # Downloads the saved plan and applies it.
+  # Downloads the saved plan from the plan job (same run) and applies it.
   #
-  # The `environment: production` directive causes GitHub Actions to pause this
-  # job and wait for approval from the required reviewers configured on the
-  # `production` environment.  Reviewers see the plan in the Step Summary of
-  # the plan job before clicking Approve.
+  # Only runs when:
+  #   • This workflow was triggered via workflow_dispatch, AND
+  #   • The 'action' input was set to 'apply', AND
+  #   • The plan detected real changes (exit code 2)
+  #
+  # A human must explicitly dispatch with action: apply — providing the
+  # manual approval gate without requiring a GitHub Environment FIC.
   # ============================================================================
   apply:
     name: Terraform Apply
     needs: plan
-    # Only run when the plan found real changes to apply.
-    if: needs.plan.outputs.exit_code == '2'
+    if: |
+      needs.plan.outputs.exit_code == '2' &&
+      github.event_name == 'workflow_dispatch' &&
+      github.event.inputs.action == 'apply'
     runs-on: ubuntu-latest
 
-    # ── APPROVAL GATE ────────────────────────────────────────────────────────
-    # GitHub pauses here, notifies required reviewers, and waits for approval.
-    # Configure reviewers: Settings → Environments → production → Required reviewers
-    environment: production
-    # ─────────────────────────────────────────────────────────────────────────
-
-    # ── Terraform ARM authentication via OIDC ────────────────────────────────
-    # Each job must re-declare env vars — job-level env does not inherit across jobs.
     env:
       ARM_CLIENT_ID:       ${{ secrets.AZURE_CLIENT_ID }}
       ARM_TENANT_ID:       ${{ secrets.AZURE_TENANT_ID }}
@@ -224,7 +225,6 @@ jobs:
           terraform_version: "~1.5"
           terraform_wrapper: false
 
-      # ── Azure CLI login via OIDC ──────────────────────────────────────────
       - name: Azure Login (OIDC)
         uses: azure/login@v2
         with:
@@ -236,16 +236,14 @@ jobs:
         id: app-token
         uses: actions/create-github-app-token@v3.1.1
         with:
-          client-id: ${{ secrets.GH_APP_ID }}
+          client-id:   ${{ secrets.GH_APP_ID }}
           private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
-          owner: Terraform-Modules-Internal
+          owner:       Terraform-Modules-Internal
 
       - name: Configure Git credentials
         run: |
           git config --global url."https://x-access-token:${{ steps.app-token.outputs.token }}@github.com/".insteadOf "https://github.com/"
 
-      # Re-initialise to restore providers and modules.  The pinned lock file
-      # (.terraform.lock.hcl) ensures the same provider versions as the plan.
       - name: Terraform Init
         run: terraform init
 
@@ -255,8 +253,7 @@ jobs:
           name: tfplan-${{ github.run_id }}
           path: ${{ github.workspace }}
 
-      # -auto-approve is safe here: human approval was collected via the
-      # environment gate above.  The saved plan is applied exactly — no drift.
+      # The plan was reviewed and apply was manually dispatched — safe to auto-approve.
       - name: Terraform Apply
         run: terraform apply -auto-approve "${{ github.workspace }}/tfplan"
 
@@ -273,9 +270,9 @@ jobs:
           {
             echo "## Terraform Apply — ${ICON} ${RESULT^}"
             echo ""
-            echo "| Field    | Value |"
-            echo "|----------|-------|"
-            echo "| Commit   | \`${{ github.sha }}\` |"
-            echo "| Approved by | ${{ github.actor }} |"
-            echo "| Run      | [${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) |"
+            echo "| Field        | Value |"
+            echo "|--------------|-------|"
+            echo "| Commit       | \`${{ github.sha }}\` |"
+            echo "| Approved by  | ${{ github.actor }} |"
+            echo "| Run          | [${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) |"
           } >> "$GITHUB_STEP_SUMMARY"
