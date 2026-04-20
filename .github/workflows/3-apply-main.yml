@@ -1,57 +1,45 @@
 # ============================================================================
-# Workflow 3 — Terraform Apply (Post-merge to main)
+# Workflow 3 — Terraform Apply / Destroy (main)
 #
 # Pipeline shape
 # ──────────────
 #
 #   On push to main (automatic):
-#   ┌──────────────────┐
-#   │   Job: plan      │  → posts plan to Step Summary, uploads artifact
-#   │  (auto)          │    NO apply — human must review and re-dispatch
-#   └──────────────────┘
+#   ┌───────────┐
+#   │   plan    │  → posts plan to Step Summary. No apply — human dispatches.
+#   └───────────┘
 #
-#   On workflow_dispatch → action: apply (manual):
-#   ┌──────────────────┐     tfplan artifact      ┌──────────────────────┐
-#   │   Job: plan      │ ──────────────────────▶  │   Job: apply         │
-#   │  (re-runs)       │                          │   (manual approval)  │
-#   └──────────────────┘                          └──────────────────────┘
+#   On workflow_dispatch → action: apply (manual approval):
+#   ┌───────────┐     tfplan artifact     ┌───────────┐
+#   │   plan    │ ──────────────────────▶ │   apply   │
+#   └───────────┘                         └───────────┘
 #
-# Approval gate (without GitHub Environments)
-# ────────────────────────────────────────────
-# The apply job only runs when a human manually triggers this workflow via
-# Actions → "Run workflow" and selects action: apply.
-# This preserves a single Federated Identity Credential (subject:
-# repo:<org>/<repo>:ref:refs/heads/main) covering both jobs — no
-# environment-scoped FIC is required.
+#   On workflow_dispatch → action: destroy (manual, destructive):
+#   ┌─────────────┐
+#   │   destroy   │  → confirmation guard → terraform destroy
+#   └─────────────┘     (plan job is skipped)
 #
-# How to approve and apply:
+# How to trigger apply:
 #   1. Review the plan in the Step Summary of the push-triggered run.
-#   2. Go to Actions → "3 · Apply (main)" → Run workflow.
-#   3. Select action: apply and click Run workflow.
+#   2. Actions → "3 · Apply / Destroy (main)" → Run workflow
+#   3. action: apply → Run workflow
+#
+# How to trigger destroy:
+#   1. Actions → "3 · Apply / Destroy (main)" → Run workflow
+#   2. action: destroy, confirm_destroy: destroy → Run workflow
 #
 # Authentication strategy
 # ────────────────────────
-# Azure App Registration with Federated Identity Credentials (OIDC).
-# No client secrets are required, stored, or transmitted.
+# OIDC — no client secrets stored or transmitted.
+# Single Federated Identity Credential required:
+#   Entity type: Branch → subject: repo:<org>/<repo>:ref:refs/heads/main
 #
 # Required GitHub Secrets:
 #   AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_SUBSCRIPTION_ID
 #   GH_APP_ID, GH_APP_PRIVATE_KEY
-#
-# Azure prerequisites:
-#   - App Registration with ONE Federated Identity Credential:
-#       Entity type: Branch → subject: repo:<org>/<repo>:ref:refs/heads/main
-#       Covers both the plan and apply jobs.
-#   - Contributor (or scoped) role on the target subscription/RG
-#
-# Concurrency
-# ───────────
-# A concurrency group prevents two apply runs from racing on the same branch.
-# cancel-in-progress is false because interrupting a running apply could leave
-# infrastructure in a partially-changed state.
 # ============================================================================
 
-name: "3 · Apply (main)"
+name: "3 · Apply / Destroy (main)"
 
 on:
   push:
@@ -60,13 +48,19 @@ on:
   workflow_dispatch:
     inputs:
       action:
-        description: "Action to perform after plan"
+        description: "Action to perform"
         required: true
         default: plan-only
         type: choice
         options:
           - plan-only
           - apply
+          - destroy
+      confirm_destroy:
+        description: "Type 'destroy' to confirm (required when action is destroy)"
+        required: false
+        type: string
+        default: ""
 
 permissions:
   id-token: write
@@ -74,18 +68,17 @@ permissions:
 
 concurrency:
   group: terraform-apply-${{ github.ref }}
-  cancel-in-progress: false  # never interrupt an in-progress apply
+  cancel-in-progress: false
 
 # ============================================================================
 # JOB 1 — plan
-# Always runs. Generates the execution plan, publishes it to the Step Summary
-# so the reviewer can read it before approving, and uploads the binary plan
-# file as an artifact for the apply job (same run).
+# Skipped when action is 'destroy' (destroy runs independently).
 # ============================================================================
 jobs:
   plan:
     name: Terraform Plan
     runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event.inputs.action != 'destroy'
 
     outputs:
       exit_code: ${{ steps.plan.outputs.exit_code }}
@@ -143,8 +136,6 @@ jobs:
           set -e
         continue-on-error: true
 
-      # Publish the plan to the Step Summary so the reviewer can read it
-      # before dispatching the apply action.
       - name: Publish plan to Step Summary
         run: |
           EXIT="${{ steps.plan.outputs.exit_code }}"
@@ -171,7 +162,7 @@ jobs:
             echo '```'
             echo "</details>"
             echo ""
-            echo "> To apply: Actions → **3 · Apply (main)** → Run workflow → action: **apply**"
+            echo "> To apply: Actions → **3 · Apply / Destroy (main)** → Run workflow → action: **apply**"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload plan artifact
@@ -190,23 +181,13 @@ jobs:
 
   # ============================================================================
   # JOB 2 — apply
-  # Downloads the saved plan from the plan job (same run) and applies it.
-  #
-  # Only runs when:
-  #   • This workflow was triggered via workflow_dispatch, AND
-  #   • The 'action' input was set to 'apply', AND
-  #   • The plan detected real changes (exit code 2)
-  #
-  # A human must explicitly dispatch with action: apply — providing the
-  # manual approval gate without requiring a GitHub Environment FIC.
+  # Runs only when manually dispatched with action: apply AND plan has changes.
+  # The explicit dispatch is the manual approval gate.
   # ============================================================================
   apply:
     name: Terraform Apply
     needs: plan
-    if: |
-      needs.plan.outputs.exit_code == '2' &&
-      github.event_name == 'workflow_dispatch' &&
-      github.event.inputs.action == 'apply'
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'apply' && needs.plan.outputs.exit_code == '2'
     runs-on: ubuntu-latest
 
     env:
@@ -253,7 +234,6 @@ jobs:
           name: tfplan-${{ github.run_id }}
           path: ${{ github.workspace }}
 
-      # The plan was reviewed and apply was manually dispatched — safe to auto-approve.
       - name: Terraform Apply
         run: terraform apply -auto-approve "${{ github.workspace }}/tfplan"
 
@@ -274,5 +254,91 @@ jobs:
             echo "|--------------|-------|"
             echo "| Commit       | \`${{ github.sha }}\` |"
             echo "| Approved by  | ${{ github.actor }} |"
+            echo "| Run          | [${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # ============================================================================
+  # JOB 3 — destroy
+  # DESTRUCTIVE. Runs only when manually dispatched with action: destroy AND
+  # confirm_destroy is exactly "destroy". Plan job is skipped in this path.
+  # ============================================================================
+  destroy:
+    name: Terraform Destroy
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'destroy'
+    runs-on: ubuntu-latest
+
+    env:
+      ARM_CLIENT_ID:       ${{ secrets.AZURE_CLIENT_ID }}
+      ARM_TENANT_ID:       ${{ secrets.AZURE_TENANT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      ARM_USE_OIDC:        "true"
+
+    steps:
+      # Abort immediately if the typed confirmation is wrong.
+      - name: Confirm destroy
+        run: |
+          if [ "${{ github.event.inputs.confirm_destroy }}" != "destroy" ]; then
+            echo "::error::confirm_destroy must be exactly 'destroy'. Got: '${{ github.event.inputs.confirm_destroy }}'"
+            exit 1
+          fi
+          echo "Destroy confirmed by ${{ github.actor }}"
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~1.5"
+          terraform_wrapper: false
+
+      - name: Azure Login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id:       ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id:       ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Generate GitHub App Token
+        id: app-token
+        uses: actions/create-github-app-token@v3.1.1
+        with:
+          client-id:   ${{ secrets.GH_APP_ID }}
+          private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
+          owner:       Terraform-Modules-Internal
+
+      - name: Configure Git credentials
+        run: |
+          git config --global url."https://x-access-token:${{ steps.app-token.outputs.token }}@github.com/".insteadOf "https://github.com/"
+
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Terraform Destroy
+        timeout-minutes: 30
+        run: |
+          terraform destroy \
+            -auto-approve \
+            -no-color \
+            -lock-timeout=60s
+
+      - name: Publish destroy result to Step Summary
+        if: always()
+        run: |
+          RESULT="${{ job.status }}"
+          case "$RESULT" in
+            success) ICON="✅" ;;
+            failure) ICON="❌" ;;
+            *)       ICON="⚠️" ;;
+          esac
+
+          {
+            echo "## Terraform Destroy — ${ICON} ${RESULT^}"
+            echo ""
+            echo "| Field        | Value |"
+            echo "|--------------|-------|"
+            echo "| Triggered by | ${{ github.actor }} |"
+            echo "| Commit       | \`${{ github.sha }}\` |"
+            echo "| Ref          | \`${{ github.ref_name }}\` |"
             echo "| Run          | [${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) |"
           } >> "$GITHUB_STEP_SUMMARY"
