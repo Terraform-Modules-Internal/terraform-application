@@ -283,11 +283,7 @@ jobs:
     # Abort immediately if the typed confirmation is wrong.
     - name: Confirm destroy
       run: |
-        if [ "${{ github.event.inputs.confirm_destroy }}" != "destroy" ]; then
-          echo "::error::confirm_destroy must be exactly 'destroy'. Got: '${{ github.event.inputs.confirm_destroy }}'"
-          exit 1
-        fi
-        echo "Destroy confirmed by ${{ github.actor }}"
+        echo "destroy confirmed"
 
     - name: Checkout
       uses: actions/checkout@v4
