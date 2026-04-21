@@ -267,8 +267,8 @@ jobs:
   # ============================================================================
   destroy:
     name: Terraform Destroy
-    if: github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'destroy'
     runs-on: ubuntu-latest
+    environment: production
 
     env:
       ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
