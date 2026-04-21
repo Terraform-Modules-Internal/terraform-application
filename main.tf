@@ -140,7 +140,7 @@ module "app_service" {
 # ─── Data Module ─────────────────────────────────────────────────────────────
 # MySQL Flexible Server (private, delegated to snet-data) + Storage Account.
 module "data" {
-  source = "git::https://github.com/Terraform-Modules-Internal/terraform-azurerm-data.git?ref=v1.0.0"
+  source = "git::https://github.com/Terraform-Modules-Internal/terraform-azurerm-data.git?ref=v1.0.1"
 
   resource_group_name = azurerm_resource_group.this.name
   location            = azurerm_resource_group.this.location
