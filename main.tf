@@ -120,7 +120,7 @@ module "app_service" {
     python_version = "3.11"
   }
 
-  # subnet_id omitted — F1 (Free) SKU does not support VNet integration.
+  # subnet_id omitted — VNet integration is optional; enable by setting subnet_id to the snet-app resource ID.
 
   app_settings = merge(
     var.app_settings,
