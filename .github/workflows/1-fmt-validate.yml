@@ -46,11 +46,15 @@ jobs:
 
   # --------------------------------------------------------------------------
   # Initialise the root module and run terraform validate.
-  # -backend=false skips remote state so no credentials are needed.
+  # Connects to HCP Terraform for state backend — requires TF_API_TOKEN.
   # --------------------------------------------------------------------------
   validate:
     name: Terraform Validate
     runs-on: ubuntu-latest
+
+    env:
+      TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
+      TF_CLOUD_ORGANIZATION:     ${{ vars.TF_CLOUD_ORGANIZATION }}
 
     steps:
     - name: Checkout
@@ -73,8 +77,8 @@ jobs:
       run: |
         git config --global url."https://x-access-token:${{ steps.app-token.outputs.token }}@github.com/".insteadOf "https://github.com/"
 
-    - name: terraform init (no backend)
-      run: terraform init -backend=false -upgrade
+    - name: Terraform Init
+      run: terraform init -upgrade
 
-    - name: terraform validate
+    - name: Terraform Validate
       run: terraform validate
