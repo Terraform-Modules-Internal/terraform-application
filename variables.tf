@@ -8,7 +8,7 @@ variable "resource_group_name" {
 variable "location" {
   type        = string
   description = "Azure region for all resources."
-  default     = "eastus2"
+  default     = "eastus"
 }
 
 variable "project_name" {
@@ -58,7 +58,7 @@ variable "mysql_subnet_prefix" {
 variable "app_service_sku" {
   type        = string
   description = "App Service Plan SKU (e.g. B1, B2, P1v2). B1 is sufficient for dev/test workloads."
-  default     = "B1"
+  default     = "S1"
 }
 
 variable "app_settings" {

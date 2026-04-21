@@ -7,7 +7,7 @@ data "azurerm_client_config" "current" {}
 # known after apply (e.g. module.networking.vnet_id, subnet_ids) — using
 # pre-computed IDs avoids the "Invalid count argument" error.
 locals {
-  vnet_name      = "vnet-${var.project_name}-${var.environment}-eus2-001"
+  vnet_name      = "vnet-${var.project_name}-${var.environment}-eus-001"
   vnet_id        = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/resourceGroups/${var.resource_group_name}/providers/Microsoft.Network/virtualNetworks/${local.vnet_name}"
   data_subnet_id = "${local.vnet_id}/subnets/snet-data"
 }
@@ -32,7 +32,7 @@ module "networking" {
   location            = azurerm_resource_group.this.location
   tags                = var.tags
 
-  vnet_name          = "vnet-${var.project_name}-${var.environment}-eus2-001"
+  vnet_name          = "vnet-${var.project_name}-${var.environment}-eus-001"
   vnet_address_space = var.vnet_address_space
 
   subnets = {
@@ -110,8 +110,8 @@ module "app_service" {
   location            = azurerm_resource_group.this.location
   tags                = var.tags
 
-  service_plan_name = "asp-${var.project_name}-${var.environment}-eus2-001"
-  app_service_name  = "app-${var.project_name}-${var.environment}-eus2-001"
+  service_plan_name = "asp-${var.project_name}-${var.environment}-eus-001"
+  app_service_name  = "app-${var.project_name}-${var.environment}-eus-001"
   sku_name          = var.app_service_sku
   https_only        = true
   always_on         = false
@@ -141,7 +141,7 @@ module "data" {
   tags                = var.tags
 
   mysql = {
-    server_name    = "mysql-${var.project_name}-${var.environment}-eus2-001"
+    server_name    = "mysql-${var.project_name}-${var.environment}-eus-001"
     admin_username = var.mysql_admin_username
     admin_password = var.mysql_admin_password
     sku_name       = var.mysql_sku
@@ -158,7 +158,7 @@ module "data" {
   }
 
   storage = {
-    name                     = "${replace(var.project_name, "-", "")}${var.environment}eus2001"
+    name                     = "${replace(var.project_name, "-", "")}${var.environment}eus001"
     account_tier             = "Standard"
     account_replication_type = "LRS"
     containers = [

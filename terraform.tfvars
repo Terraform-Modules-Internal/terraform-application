@@ -1,5 +1,5 @@
-resource_group_name = "rg-bdt-mvp-dev-eus2-001"
-location            = "eastus2"
+resource_group_name = "rg-bdt-mvp-dev-eus-001"
+location            = "eastus"
 project_name        = "bdt"
 environment         = "dev"
 
@@ -9,7 +9,7 @@ app_service_subnet_prefix = "10.0.1.0/24"
 mysql_subnet_prefix       = "10.0.2.0/24"
 
 # App Service
-app_service_sku = "B1"
+app_service_sku = "S1"
 
 # MySQL
 mysql_admin_username  = "mysqladmin"
