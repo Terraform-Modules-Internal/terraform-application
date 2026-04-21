@@ -259,89 +259,88 @@ jobs:
           echo "| Reason       | ${{ github.event.inputs.reason }} |"
           echo "| Run          | [${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) |"
         } >> "$GITHUB_STEP_SUMMARY"
-
   # ============================================================================
   # JOB 3 — destroy
   # DESTRUCTIVE. Runs only when manually dispatched with action: destroy AND
   # confirm_destroy is exactly "destroy". Plan job is skipped in this path.
   # ============================================================================
-  destroy:
-    name: Terraform Destroy
-    runs-on: ubuntu-latest
-    environment: production
+  # destroy:
+  #   name: Terraform Destroy
+  #   runs-on: ubuntu-latest
+  #   environment: production
 
-    env:
-      ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-      ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-      ARM_USE_OIDC: "true"
-      TF_VAR_mysql_admin_password: ${{ secrets.MYSQL_ADMIN_PASSWORD }}
-      TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
-      TF_CLOUD_ORGANIZATION: ${{ secrets.TF_CLOUD_ORGANIZATION }}
+  #   env:
+  #     ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+  #     ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+  #     ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+  #     ARM_USE_OIDC: "true"
+  #     TF_VAR_mysql_admin_password: ${{ secrets.MYSQL_ADMIN_PASSWORD }}
+  #     TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
+  #     TF_CLOUD_ORGANIZATION: ${{ secrets.TF_CLOUD_ORGANIZATION }}
 
-    steps:
-    # Abort immediately if the typed confirmation is wrong.
-    - name: Confirm destroy
-      run: |
-        echo "destroy confirmed"
+  #   steps:
+  #   # Abort immediately if the typed confirmation is wrong.
+  #   - name: Confirm destroy
+  #     run: |
+  #       echo "destroy confirmed"
 
-    - name: Checkout
-      uses: actions/checkout@v4
+  #   - name: Checkout
+  #     uses: actions/checkout@v4
 
-    - name: Setup Terraform
-      uses: hashicorp/setup-terraform@v3
-      with:
-        terraform_version: "~1.5"
-        terraform_wrapper: false
+  #   - name: Setup Terraform
+  #     uses: hashicorp/setup-terraform@v3
+  #     with:
+  #       terraform_version: "~1.5"
+  #       terraform_wrapper: false
 
-    - name: Azure Login (OIDC)
-      uses: azure/login@v2
-      with:
-        client-id: ${{ secrets.AZURE_CLIENT_ID }}
-        tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-        subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+  #   - name: Azure Login (OIDC)
+  #     uses: azure/login@v2
+  #     with:
+  #       client-id: ${{ secrets.AZURE_CLIENT_ID }}
+  #       tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+  #       subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-    - name: Generate GitHub App Token
-      id: app-token
-      uses: actions/create-github-app-token@v3.1.1
-      with:
-        client-id: ${{ secrets.GH_APP_ID }}
-        private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
-        owner: Terraform-Modules-Internal
+  #   - name: Generate GitHub App Token
+  #     id: app-token
+  #     uses: actions/create-github-app-token@v3.1.1
+  #     with:
+  #       client-id: ${{ secrets.GH_APP_ID }}
+  #       private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
+  #       owner: Terraform-Modules-Internal
 
-    - name: Configure Git credentials
-      run: |
-        git config --global url."https://x-access-token:${{ steps.app-token.outputs.token }}@github.com/".insteadOf "https://github.com/"
+  #   - name: Configure Git credentials
+  #     run: |
+  #       git config --global url."https://x-access-token:${{ steps.app-token.outputs.token }}@github.com/".insteadOf "https://github.com/"
 
-    - name: Terraform Init
-      run: terraform init -upgrade
+  #   - name: Terraform Init
+  #     run: terraform init -upgrade
 
-    - name: Terraform Destroy
-      timeout-minutes: 30
-      run: |
-        terraform destroy \
-          -auto-approve \
-          -no-color \
-          -lock-timeout=60s
+  #   - name: Terraform Destroy
+  #     timeout-minutes: 30
+  #     run: |
+  #       terraform destroy \
+  #         -auto-approve \
+  #         -no-color \
+  #         -lock-timeout=60s
 
-    - name: Publish destroy result to Step Summary
-      if: always()
-      run: |
-        RESULT="${{ job.status }}"
-        case "$RESULT" in
-          success) ICON="✅" ;;
-          failure) ICON="❌" ;;
-          *)       ICON="⚠️" ;;
-        esac
+  #   - name: Publish destroy result to Step Summary
+  #     if: always()
+  #     run: |
+  #       RESULT="${{ job.status }}"
+  #       case "$RESULT" in
+  #         success) ICON="✅" ;;
+  #         failure) ICON="❌" ;;
+  #         *)       ICON="⚠️" ;;
+  #       esac
 
-        {
-          echo "## Terraform Destroy — ${ICON} ${RESULT^}"
-          echo ""
-          echo "| Field        | Value |"
-          echo "|--------------|-------|"
-          echo "| Triggered by | ${{ github.actor }} |"
-          echo "| Reason       | ${{ github.event.inputs.reason }} |"
-          echo "| Commit       | \`${{ github.sha }}\` |"
-          echo "| Ref          | \`${{ github.ref_name }}\` |"
-          echo "| Run          | [${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) |"
-        } >> "$GITHUB_STEP_SUMMARY"
+  #       {
+  #         echo "## Terraform Destroy — ${ICON} ${RESULT^}"
+  #         echo ""
+  #         echo "| Field        | Value |"
+  #         echo "|--------------|-------|"
+  #         echo "| Triggered by | ${{ github.actor }} |"
+  #         echo "| Reason       | ${{ github.event.inputs.reason }} |"
+  #         echo "| Commit       | \`${{ github.sha }}\` |"
+  #         echo "| Ref          | \`${{ github.ref_name }}\` |"
+  #         echo "| Run          | [${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) |"
+  #       } >> "$GITHUB_STEP_SUMMARY"
