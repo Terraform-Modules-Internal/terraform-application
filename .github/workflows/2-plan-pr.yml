@@ -115,7 +115,7 @@ jobs:
             -no-color \
             -detailed-exitcode \
             -lock-timeout=60s \
-            -out="${{ github.workspace }}/tfplan" \
+            -input=false \
             2>&1 | tee "${{ github.workspace }}/plan.txt"
           echo "exit_code=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
           set -e

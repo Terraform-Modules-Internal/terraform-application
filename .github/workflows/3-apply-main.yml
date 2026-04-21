@@ -137,7 +137,7 @@ jobs:
             -no-color \
             -detailed-exitcode \
             -lock-timeout=60s \
-            -out="${{ github.workspace }}/tfplan" \
+            -input=false \
             2>&1 | tee "${{ github.workspace }}/plan.txt"
           echo "exit_code=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
           set -e
@@ -171,14 +171,6 @@ jobs:
             echo ""
             echo "> To apply: Actions → **3 · Apply / Destroy (main)** → Run workflow → action: **apply**"
           } >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Upload plan artifact
-        if: steps.plan.outputs.exit_code != '1'
-        uses: actions/upload-artifact@v4
-        with:
-          name: tfplan-${{ github.run_id }}
-          path: tfplan
-          retention-days: 1
 
       - name: Fail if plan errored
         if: steps.plan.outputs.exit_code == '1'
@@ -240,14 +232,8 @@ jobs:
       - name: Terraform Init
         run: terraform init -upgrade
 
-      - name: Download plan artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: tfplan-${{ github.run_id }}
-          path: ${{ github.workspace }}
-
       - name: Terraform Apply
-        run: terraform apply -auto-approve "${{ github.workspace }}/tfplan"
+        run: terraform apply -auto-approve -input=false
 
       - name: Publish apply result to Step Summary
         if: always()
