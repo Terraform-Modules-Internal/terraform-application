@@ -25,7 +25,6 @@
 #   MYSQL_ADMIN_PASSWORD   — MySQL administrator password (sensitive)
 #   TF_API_TOKEN           — HCP Terraform user/team API token
 #
-# Required GitHub Variables (non-sensitive):
 #   TF_CLOUD_ORGANIZATION  — HCP Terraform organization name
 #
 # Azure prerequisites:
@@ -64,7 +63,7 @@ jobs:
       ARM_USE_OIDC:               "true"
       TF_VAR_mysql_admin_password: ${{ secrets.MYSQL_ADMIN_PASSWORD }}
       TF_TOKEN_app_terraform_io:  ${{ secrets.TF_API_TOKEN }}
-      TF_CLOUD_ORGANIZATION:      ${{ vars.TF_CLOUD_ORGANIZATION }}
+      TF_CLOUD_ORGANIZATION:      ${{ secrets.TF_CLOUD_ORGANIZATION }}
 
     steps:
       - name: Checkout

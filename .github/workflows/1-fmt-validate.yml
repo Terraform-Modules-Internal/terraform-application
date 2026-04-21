@@ -54,7 +54,7 @@ jobs:
 
     env:
       TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
-      TF_CLOUD_ORGANIZATION:     ${{ vars.TF_CLOUD_ORGANIZATION }}
+      TF_CLOUD_ORGANIZATION:     ${{ secrets.TF_CLOUD_ORGANIZATION }}
 
     steps:
     - name: Checkout
