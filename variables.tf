@@ -58,7 +58,7 @@ variable "mysql_subnet_prefix" {
 variable "app_service_sku" {
   type        = string
   description = "App Service Plan SKU (e.g. B1, B2, P1v2). B1 is sufficient for dev/test workloads."
-  default     = "S1"
+  default     = "F1"
 }
 
 variable "app_settings" {

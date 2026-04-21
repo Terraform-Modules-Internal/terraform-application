@@ -120,15 +120,21 @@ module "app_service" {
     python_version = "3.11"
   }
 
-  subnet_id = module.networking.subnet_ids["snet-app"]
+  # subnet_id omitted — F1 (Free) SKU does not support VNet integration.
 
-  app_settings = merge(var.app_settings, {
-    "MYSQL_HOST"                     = module.data.mysql_fqdn
-    "MYSQL_DATABASE"                 = var.mysql_database_name
-    "MYSQL_USER"                     = var.mysql_admin_username
-    "WEBSITE_RUN_FROM_PACKAGE"       = "1"
-    "SCM_DO_BUILD_DURING_DEPLOYMENT" = "true"
-  })
+  app_settings = merge(
+    var.app_settings,
+    {
+      "WEBSITE_RUN_FROM_PACKAGE"       = "1"
+      "SCM_DO_BUILD_DURING_DEPLOYMENT" = "true"
+    },
+    # Only inject MySQL settings when a Flexible Server is actually deployed.
+    module.data.mysql_fqdn != null ? {
+      "MYSQL_HOST"     = module.data.mysql_fqdn
+      "MYSQL_DATABASE" = var.mysql_database_name
+      "MYSQL_USER"     = var.mysql_admin_username
+    } : {}
+  )
 }
 
 # ─── Data Module ─────────────────────────────────────────────────────────────
@@ -140,22 +146,10 @@ module "data" {
   location            = azurerm_resource_group.this.location
   tags                = var.tags
 
-  mysql = {
-    server_name    = "mysql-${var.project_name}-${var.environment}-eus-001"
-    admin_username = var.mysql_admin_username
-    admin_password = var.mysql_admin_password
-    sku_name       = var.mysql_sku
-    version        = "8.0.21"
-    storage_size_gb = var.mysql_storage_size_gb
-
-    delegated_subnet_id   = local.data_subnet_id
-    virtual_network_id    = local.vnet_id
-    private_dns_zone_name = "${var.project_name}.mysql.database.azure.com"
-
-    databases = [
-      { name = var.mysql_database_name }
-    ]
-  }
+  # mysql = null — MySQL Flexible Server is not available in this subscription/region.
+  # Re-enable by restoring the mysql block once quota is approved at:
+  # https://aka.ms/mysqlcapacity
+  mysql = null
 
   storage = {
     name                     = "${replace(var.project_name, "-", "")}${var.environment}eus001"

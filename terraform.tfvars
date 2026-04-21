@@ -9,7 +9,7 @@ app_service_subnet_prefix = "10.0.1.0/24"
 mysql_subnet_prefix       = "10.0.2.0/24"
 
 # App Service
-app_service_sku = "S1"
+app_service_sku = "F1"
 
 # MySQL
 mysql_admin_username  = "mysqladmin"
