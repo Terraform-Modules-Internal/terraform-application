@@ -193,7 +193,6 @@ jobs:
     name: Terraform Apply
     needs: plan
     environment: production
-    if: github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'apply' && needs.plan.outputs.exit_code == '2'
     runs-on: ubuntu-latest
 
     env:
