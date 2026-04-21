@@ -1,3 +1,17 @@
+# ─── Provider Data ────────────────────────────────────────────────────────────
+data "azurerm_client_config" "current" {}
+
+# ─── Computed Locals ──────────────────────────────────────────────────────────
+# Azure resource IDs are constructed from known inputs so they are available at
+# plan time. count/for_each in child modules cannot use values that are only
+# known after apply (e.g. module.networking.vnet_id, subnet_ids) — using
+# pre-computed IDs avoids the "Invalid count argument" error.
+locals {
+  vnet_name      = "vnet-${var.project_name}-${var.environment}-eus2-001"
+  vnet_id        = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/resourceGroups/${var.resource_group_name}/providers/Microsoft.Network/virtualNetworks/${local.vnet_name}"
+  data_subnet_id = "${local.vnet_id}/subnets/snet-data"
+}
+
 # ─── Resource Group ───────────────────────────────────────────────────────────
 resource "azurerm_resource_group" "this" {
   name     = var.resource_group_name
@@ -134,8 +148,8 @@ module "data" {
     version        = "8.0.21"
     storage_size_gb = var.mysql_storage_size_gb
 
-    delegated_subnet_id   = module.networking.subnet_ids["snet-data"]
-    virtual_network_id    = module.networking.vnet_id
+    delegated_subnet_id   = local.data_subnet_id
+    virtual_network_id    = local.vnet_id
     private_dns_zone_name = "${var.project_name}.mysql.database.azure.com"
 
     databases = [
