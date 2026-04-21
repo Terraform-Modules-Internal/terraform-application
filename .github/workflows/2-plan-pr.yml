@@ -93,7 +93,7 @@ jobs:
           git config --global url."https://x-access-token:${{ steps.app-token.outputs.token }}@github.com/".insteadOf "https://github.com/"
 
       - name: Terraform Init
-        run: terraform init
+        run: terraform init -upgrade
 
       # ── Plan ─────────────────────────────────────────────────────────────
       # -detailed-exitcode returns:
@@ -180,5 +180,7 @@ jobs:
       - name: Fail if plan errored
         if: steps.plan.outputs.exit_code == '1'
         run: |
-          echo "::error::Terraform plan exited with an error. Review the output above."
+          echo "=== Terraform plan output ==="
+          cat "${{ github.workspace }}/plan.txt"
+          echo "::error::Terraform plan failed. Review the output above."
           exit 1
