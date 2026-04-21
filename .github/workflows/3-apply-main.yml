@@ -65,6 +65,10 @@ on:
         required: false
         type: string
         default: ""
+      reason:
+        description: "Reason for this manual run (required for apply and destroy)"
+        required: true
+        type: string
 
 permissions:
   id-token: write
@@ -252,6 +256,7 @@ jobs:
             echo "|--------------|-------|"
             echo "| Commit       | \`${{ github.sha }}\` |"
             echo "| Approved by  | ${{ github.actor }} |"
+            echo "| Reason       | ${{ github.event.inputs.reason }} |"
             echo "| Run          | [${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) |"
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -339,6 +344,7 @@ jobs:
             echo "| Field        | Value |"
             echo "|--------------|-------|"
             echo "| Triggered by | ${{ github.actor }} |"
+            echo "| Reason       | ${{ github.event.inputs.reason }} |"
             echo "| Commit       | \`${{ github.sha }}\` |"
             echo "| Ref          | \`${{ github.ref_name }}\` |"
             echo "| Run          | [${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) |"
