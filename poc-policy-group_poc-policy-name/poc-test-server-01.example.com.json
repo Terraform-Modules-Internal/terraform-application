@@ -18,7 +18,7 @@
     "path": "arn:aws:secretsmanager:us-east-1:000000000000:secret:chef/automate/linux/chefadm-example",
     "source": "asm"
   },
-  "decommissioned": true,
+  "decommissioned": false,
   "fqdn": "poc-test-server-01.example.com",
   "ip": "10.0.0.10",
   "tags": [
@@ -28,6 +28,5 @@
     "financial_owner_email: platform-team@example.com",
     "platform: poc",
     "github_repo: Terraform-Modules-Internal/terraform-application"
-  ],
-  "decommissioned_date": "2026-06-05T08:00:52Z"
+  ]
 }
