@@ -1,0 +1,32 @@
+{
+  "chef_attributes": {
+    "deployment_environment": "dev",
+    "policy_group": "poc-test-server-01-demo-group-changed",
+    "policy_name": "poc-policy-demo-changed",
+    "viacbs": {
+      "cge_env": "dev",
+      "hostname": "poc-test-server-01-demo-test1"
+    },
+    "vmn": {
+      "org": "poc",
+      "sitename": "poc-test-server-01-demo-changed"
+    }
+  },
+  "credentials": {
+    "authentication_method": "ssh",
+    "chef_user": "chefadm",
+    "path": "arn:aws:secretsmanager:us-east-1:000000000000:secret:chef/automate/linux/chefadm-example",
+    "source": "asm"
+  },
+  "decommissioned": false,
+  "fqdn": "poc-test-server-01.example.com",
+  "ip": "10.0.0.10",
+  "tags": [
+    "business_unit: poc",
+    "technical_team_owner: platform-team@example.com",
+    "financial_owner_name: Platform Team",
+    "financial_owner_email: platform-team@example.com",
+    "platform: poc",
+    "github_repo: Terraform-Modules-Internal/terraform-application"
+  ]
+}
