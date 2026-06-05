@@ -5,7 +5,7 @@
     "policy_name": "poc-policy-name",
     "viacbs": {
       "cge_env": "dev",
-      "hostname": "poc-test-server-01-test"
+      "hostname": "poc-test-server-01-test1"
     },
     "vmn": {
       "org": "poc",
